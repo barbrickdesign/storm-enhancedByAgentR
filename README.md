@@ -17,6 +17,11 @@
 - [2024/05] We add Bing Search support in [rm.py](knowledge_storm/rm.py). Test STORM with `GPT-4o` - we now configure the article generation part in our demo using `GPT-4o` model.
 - [2024/04] We release refactored version of STORM codebase! We define [interface](knowledge_storm/interface.py) for STORM pipeline and reimplement STORM-wiki (check out [`src/storm_wiki`](knowledge_storm/storm_wiki)) to demonstrate how to instantiate the pipeline. We provide API to support customization of different language models and retrieval/search integration.
 
+**Enhanced in this fork** ⚡
+- Added `GroqModel` in [lm.py](knowledge_storm/lm.py) for blazing-fast inference using [Groq's API](https://console.groq.com) (LLaMA 3, Mixtral, Gemma).
+- Added `SerperRM` in [rm.py](knowledge_storm/rm.py) for Google Search via the [Serper.dev API](https://serper.dev).
+- Added [examples/run_storm_wiki_groq.py](examples/run_storm_wiki_groq.py) to run STORM with Groq models and Serper search.
+
 ## Overview [(Try STORM now!)](https://storm.genie.stanford.edu/)
 
 <p align="center">
@@ -100,8 +105,8 @@ runner = STORMWikiRunner(engine_args, lm_configs, rm)
 ```
 
 Currently, our package support:
-- `OpenAIModel`, `AzureOpenAIModel`, `ClaudeModel`, `VLLMClient`, `TGIClient`, `TogetherClient`, `OllamaClient` as language model components
-- `YouRM`, `BingSearch`, `VectorRM` as retrieval module components
+- `OpenAIModel`, `AzureOpenAIModel`, `ClaudeModel`, `VLLMClient`, `TGIClient`, `TogetherClient`, `OllamaClient`, `GroqModel`, `DeepSeekModel` as language model components
+- `YouRM`, `BingSearch`, `VectorRM`, `SerperRM` as retrieval module components
 
 :star2: **PRs for integrating more language models into [knowledge_storm/lm.py](knowledge_storm/lm.py) and search engines/retrievers into [knowledge_storm/rm.py](knowledge_storm/rm.py) are highly appreciated!**
 
