@@ -165,6 +165,104 @@ class BingSearch(dspy.Retrieve):
         return collected_results
 
 
+class SerperRM(dspy.Retrieve):
+    """Retrieve information from Google Search using the Serper.dev API.
+
+    Serper.dev provides a cost-effective Google Search API with a generous free tier.
+    Sign up at https://serper.dev to obtain an API key.
+    """
+
+    def __init__(self, serper_search_api_key=None, k=3, is_valid_source: Callable = None,
+                 min_char_count: int = 150, snippet_chunk_size: int = 1000,
+                 webpage_helper_max_threads=10, **kwargs):
+        """
+        Params:
+            serper_search_api_key: Serper.dev API key. If not provided, uses SERPER_API_KEY env variable.
+            k: Number of top results to return.
+            is_valid_source: Optional callable that takes a URL and returns a boolean.
+            min_char_count: Minimum character count for the article to be considered valid.
+            snippet_chunk_size: Maximum character count for each snippet.
+            webpage_helper_max_threads: Maximum number of threads to use for webpage helper.
+        """
+        super().__init__(k=k)
+        if not serper_search_api_key and not os.environ.get("SERPER_API_KEY"):
+            raise RuntimeError(
+                "You must supply serper_search_api_key or set environment variable SERPER_API_KEY")
+        elif serper_search_api_key:
+            self.serper_api_key = serper_search_api_key
+        else:
+            self.serper_api_key = os.environ["SERPER_API_KEY"]
+        self.endpoint = "https://google.serper.dev/search"
+        self.webpage_helper = WebPageHelper(
+            min_char_count=min_char_count,
+            snippet_chunk_size=snippet_chunk_size,
+            max_thread_num=webpage_helper_max_threads
+        )
+        self.usage = 0
+
+        if is_valid_source:
+            self.is_valid_source = is_valid_source
+        else:
+            self.is_valid_source = lambda x: True
+
+    def get_usage_and_reset(self):
+        usage = self.usage
+        self.usage = 0
+
+        return {'SerperRM': usage}
+
+    def forward(self, query_or_queries: Union[str, List[str]], exclude_urls: List[str] = []):
+        """Search with Serper (Google) for self.k top passages for query or queries.
+
+        Args:
+            query_or_queries (Union[str, List[str]]): The query or queries to search for.
+            exclude_urls (List[str]): A list of urls to exclude from the search results.
+
+        Returns:
+            a list of Dicts, each dict has keys of 'description', 'snippets' (list of strings), 'title', 'url'
+        """
+        queries = (
+            [query_or_queries]
+            if isinstance(query_or_queries, str)
+            else query_or_queries
+        )
+        self.usage += len(queries)
+
+        url_to_results = {}
+
+        headers = {
+            "X-API-KEY": self.serper_api_key,
+            "Content-Type": "application/json"
+        }
+
+        for query in queries:
+            try:
+                response = requests.post(
+                    self.endpoint,
+                    headers=headers,
+                    json={"q": query, "num": self.k}
+                ).json()
+
+                for d in response.get('organic', []):
+                    if self.is_valid_source(d['link']) and d['link'] not in exclude_urls:
+                        url_to_results[d['link']] = {
+                            'url': d['link'],
+                            'title': d.get('title', ''),
+                            'description': d.get('snippet', '')
+                        }
+            except Exception as e:
+                logging.error(f'Error occurs when searching query {query}: {e}')
+
+        valid_url_to_snippets = self.webpage_helper.urls_to_snippets(list(url_to_results.keys()))
+        collected_results = []
+        for url in valid_url_to_snippets:
+            r = url_to_results[url]
+            r['snippets'] = valid_url_to_snippets[url]['snippets']
+            collected_results.append(r)
+
+        return collected_results
+
+
 class VectorRM(dspy.Retrieve):
     """Retrieve information from custom documents using Qdrant.
 

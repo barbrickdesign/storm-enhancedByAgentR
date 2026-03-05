@@ -194,6 +194,87 @@ class DeepSeekModel(dspy.OpenAI):
         return completions
 
 
+class GroqModel(dspy.OpenAI):
+    """A wrapper class for the Groq API, providing fast inference for open-source LLMs.
+
+    Groq offers a high-speed inference API compatible with the OpenAI interface.
+    Supported models include LLaMA 3, Mixtral, and Gemma variants.
+    Sign up at https://console.groq.com to obtain an API key.
+    """
+
+    def __init__(
+            self,
+            model: str = "llama3-8b-8192",
+            api_key: Optional[str] = None,
+            api_base: str = "https://api.groq.com/openai/v1",
+            **kwargs
+    ):
+        """
+        Params:
+            model: Groq model name. Common choices:
+                - 'llama3-8b-8192': LLaMA 3 8B (fast, cost-effective)
+                - 'llama3-70b-8192': LLaMA 3 70B (higher quality)
+                - 'mixtral-8x7b-32768': Mixtral 8x7B (32K context)
+                - 'gemma-7b-it': Gemma 7B instruct
+            api_key: Groq API key. If not provided, uses GROQ_API_KEY env variable.
+            api_base: Groq API base URL.
+        """
+        resolved_api_key = api_key or os.getenv("GROQ_API_KEY")
+        if not resolved_api_key:
+            raise ValueError(
+                "Groq API key must be provided either as an argument or as the GROQ_API_KEY environment variable."
+            )
+        super().__init__(model=model, api_key=resolved_api_key, api_base=api_base,
+                         model_type="chat", **kwargs)
+        self._token_usage_lock = threading.Lock()
+        self.prompt_tokens = 0
+        self.completion_tokens = 0
+        self.model = model
+
+    def log_usage(self, response):
+        """Log the total tokens from the Groq API response."""
+        usage_data = response.get('usage')
+        if usage_data:
+            with self._token_usage_lock:
+                self.prompt_tokens += usage_data.get('prompt_tokens', 0)
+                self.completion_tokens += usage_data.get('completion_tokens', 0)
+
+    def get_usage_and_reset(self):
+        """Get the total tokens used and reset the token usage."""
+        usage = {
+            self.model:
+                {'prompt_tokens': self.prompt_tokens, 'completion_tokens': self.completion_tokens}
+        }
+        self.prompt_tokens = 0
+        self.completion_tokens = 0
+
+        return usage
+
+    def __call__(
+            self,
+            prompt: str,
+            only_completed: bool = True,
+            return_sorted: bool = False,
+            **kwargs,
+    ) -> list[dict[str, Any]]:
+        """Call the Groq API to generate completions."""
+        assert only_completed, "for now"
+        assert return_sorted is False, "for now"
+
+        response = self.request(prompt, **kwargs)
+
+        self.log_usage(response)
+
+        choices = response["choices"]
+        completed_choices = [c for c in choices if c["finish_reason"] != "length"]
+        if only_completed and len(completed_choices):
+            choices = completed_choices
+
+        completions = [self._get_choice_text(c) for c in choices]
+
+        return completions
+
+
 class AzureOpenAIModel(dspy.AzureOpenAI):
     """A wrapper class for dspy.AzureOpenAI."""
     def __init__(

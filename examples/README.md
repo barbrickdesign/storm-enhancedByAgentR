@@ -26,6 +26,32 @@ We host a number of example scripts for various customization of STORM (e.g., us
 
 Besides VLLM server, STORM is also compatible with [TGI](https://huggingface.co/docs/text-generation-inference/en/index) server or [Together.ai](https://www.together.ai/products#inference) endpoint. 
 
+## Run STORM with Groq (fast open-source LLMs)
+[run_storm_wiki_groq.py](run_storm_wiki_groq.py) provides an example of running STORM with [Groq's](https://console.groq.com) high-speed inference API, which supports open-source models including LLaMA 3, Mixtral, and Gemma.
+
+1. Sign up at [console.groq.com](https://console.groq.com) to get a free API key.
+2. Set up `GROQ_API_KEY` in your `secrets.toml` file.
+3. Run the following command:
+
+   ```
+   python examples/run_storm_wiki_groq.py \
+       --output-dir $OUTPUT_DIR \
+       --retriever serper \
+       --conv-model llama3-8b-8192 \
+       --article-model llama3-70b-8192 \
+       --do-research \
+       --do-generate-outline \
+       --do-generate-article \
+       --do-polish-article
+   ```
+   - `--conv-model`: Groq model for conversation simulation (e.g., `llama3-8b-8192`, `mixtral-8x7b-32768`).
+   - `--article-model`: Groq model for article generation (e.g., `llama3-70b-8192`, `mixtral-8x7b-32768`).
+   - `--retriever`: Search engine to use (`bing`, `you`, or `serper`).
+
+## Run STORM with Serper (Google Search)
+`SerperRM` in [knowledge_storm/rm.py](../knowledge_storm/rm.py) provides Google Search results via the [Serper.dev](https://serper.dev) API (free tier: 2,500 searches/month).
+
+Set `SERPER_API_KEY` in your `secrets.toml` and pass `--retriever serper` to any of the example scripts that support it (e.g., `run_storm_wiki_groq.py`).
 
 ## Run STORM with your own corpus
 
